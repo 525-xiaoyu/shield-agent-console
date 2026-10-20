@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>S.H.I.E.L.D. 特工登录</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        shieldDark: "#05101b",
+        shieldBlue: "#0f2b48",
+        shieldGlow: "#0099ff",
+        shieldDanger: "#ff2a2a",
+      },
+      fontFamily: {
+        mono: ["Consolas", "Monaco", "monospace"],
+      },
+    },
+  };
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  min-height:100vh;
+  font-family:Consolas,monospace;
+  color:#e2e8f0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0,153,255,0.12),transparent 26%),
+    radial-gradient(circle at 80% 10%, rgba(0,153,255,0.08),transparent 22%),
+    linear-gradient(180deg,#05101b 0%,#07203a 50%,#05101b 100%);
+  overflow:hidden;
+  position:relative;
+}
+body::before{
+  content:"";
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,153,255,0.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,153,255,0.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+.scanline{
+  position:fixed;inset:0;pointer-events:none;z-index:1;
+}
+.scanline::after{
+  content:"";
+  position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,transparent,#0099ff,transparent);
+  animation:scan 3.5s linear infinite;
+  filter:blur(1px);
+}
+@keyframes scan{
+  0%{top:0;opacity:0.85;}
+  100%{top:100%;opacity:0;}
+}
+.login-wrap{
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.shield-logo {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px solid #0099ff;
+  box-shadow:
+    0 0 18px #0099ff,
+    0 0 40px rgba(0, 153, 255, 0.45),
+    inset 0 0 18px rgba(0, 153, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(0, 153, 255, 0.25) 0%, rgba(5, 16, 27, 0.9) 70%);
+  position: relative;
+  margin-bottom: 28px;
+  animation: logoPulse 2.4s ease-in-out infinite;
+}
+.shield-logo::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 153, 255, 0.35);
+  animation: rotate 18s linear infinite;
+}
+.shield-logo::after {
+  content: "";
+  position: absolute;
+  inset: -22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 153, 255, 0.18);
+  border-top-color: #0099ff;
+  animation: rotate 9s linear infinite reverse;
+}
+@keyframes logoPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 18px #0099ff,
+      0 0 40px rgba(0, 153, 255, 0.45),
+      inset 0 0 18px rgba(0, 153, 255, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 0 28px #0099ff,
+      0 0 60px rgba(0, 153, 255, 0.6),
+      inset 0 0 26px rgba(0, 153, 255, 0.45);
+  }
+}
+@keyframes rotate {
+  from {transform: rotate(0deg);}
+  to {transform: rotate(360deg);}
+}
+.shield-logo i {
+  font-size: 64px;
+  color: #0099ff;
+  text-shadow: 0 0 12px #0099ff;
+}
+.login-panel {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, rgba(15, 43, 72, 0.85), rgba(5, 16, 27, 0.92));
+  border: 1px solid #0099ff;
+  box-shadow:
+    0 0 12px rgba(0, 153, 255, 0.5),
+    inset 0 0 10px rgba(0, 153, 255, 0.25);
+  padding: 32px;
+  position: relative;
+}
+.login-panel::before,
+.login-panel::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: #0099ff;
+}
+.login-panel::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid #0099ff;
+  border-left: 2px solid #0099ff;
+}
+.login-panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid #0099ff;
+  border-right: 2px solid #0099ff;
+}
+.panel-title {
+  text-align: center;
+  color: #0099ff;
+  text-shadow: 0 0 8px #0099ff;
+  letter-spacing: 4px;
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+.panel-subtitle {
+  text-align: center;
+  color: #9fb3c8;
+  font-size: 12px;
+  margin-bottom: 24px;
+  letter-spacing: 2px;
+}
+.blink {animation: blink 1.2s infinite;}
+@keyframes blink {
+  0%, 49% {opacity: 1;}
+  50%, 100% {opacity: 0.25;}
+}
+.form-label {
+  display: block;
+  color: #0099ff;
+  text-shadow: 0 0 6px rgba(0, 153, 255, 0.7);
+  font-size: 12px;
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+}
+.form-input {
+  width: 100%;
+  background: rgba(5, 16, 27, 0.85);
+  border: 1px solid rgba(0, 153, 255, 0.45);
+  padding: 12px 14px;
+  color: #e2e8f0;
+  font-family: Consolas, monospace;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.form-input:focus {
+  border-color: #0099ff;
+  box-shadow: 0 0 10px rgba(0, 153, 255, 0.55);
+}
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  background: rgba(0, 153, 255, 0.12);
+  border: 1px solid #0099ff;
+  color: #0099ff;
+  text-shadow: 0 0 8px #0099ff;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.login-btn:hover {
+  background: rgba(0, 153, 255, 0.28);
+  box-shadow: 0 0 14px rgba(0, 153, 255, 0.7);
+}
+.tip-text {
+  margin-top: 18px;
+  font-size: 11px;
+  color: #9fb3c8;
+  text-align: center;
+  letter-spacing: 1px;
+}
+.error-text {
+  color: #ff4444;
+  text-shadow: 0 0 6px rgba(255, 68, 68, 0.7);
+  font-size: 12px;
+  margin-top: 10px;
+  display: none;
+}
+.status-bar {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #0099ff;
+  font-size: 11px;
+  letter-spacing: 3px;
+  opacity: 0.75;
+  z-index: 2;
+}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="login-wrap">
+  <div class="shield-logo">
+    <i class="fa fa-shield"></i>
+  </div>
+  <div class="login-panel">
+    <div class="panel-title">S.H.I.E.L.D.</div>
+    <div class="panel-subtitle">STRATEGIC HOMELAND INTERVENTION, ENFORCEMENT & LOGISTICS DIVISION</div>
+
+    <label class="form-label">特工编号 / AGENT ID</label>
+    <input id="agentId" class="form-input" type="text" placeholder="请输入特工编号" />
+
+    <label class="form-label" style="margin-top: 16px;">访问密码 / PASSWORD</label>
+    <input id="agentPwd" class="form-input" type="password" placeholder="请输入访问密码" />
+
+    <button class="login-btn" onclick="loginCheck()">
+      <i class="fa fa-lock"></i> 身份核验
+    </button>
+    <div id="loginErr" class="error-text">身份验证失败，请核对特工编号与密码。</div>
+    <div class="tip-text">
+      <span class="blink">●</span> 机密终端 · 未授权访问将触发安全协议
+    </div>
+  </div>
+  <div class="status-bar">
+    AGENT TERMINAL v9.1 · SECURE CONNECTION · LEVEL 4 CLEARANCE
+  </div>
+</div>
+
+<script>
+// 固定账号密码
+const targetId = "A090593";
+const targetPwd = "Xiaoyu040525!";
+
+function loginCheck(){
+  const agentId = document.getElementById("agentId").value.trim();
+  const pwd = document.getElementById("agentPwd").value.trim();
+  const errDom = document.getElementById("loginErr");
+
+  if(!agentId || !pwd){
+    errDom.textContent = "请填写特工编号和访问密码";
+    errDom.style.display = "block";
+    return;
+  }
+
+  if(agentId === targetId && pwd === targetPwd){
+    errDom.style.display = "none";
+    // 跳转index.html，把特工ID通过url参数传过去
+    window.location.href = `index.html?agent=${encodeURIComponent(agentId)}`;
+  }else{
+    errDom.textContent = "身份验证失败，请核对特工编号与密码。";
+    errDom.style.display = "block";
+  }
+}
+//回车登录
+document.getElementById("agentPwd").addEventListener("keydown", function(e){
+  if(e.key === "Enter") loginCheck();
+})
+</script>
+</body>
+</html>

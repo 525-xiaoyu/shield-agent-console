@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>S.H.I.E.L.D. 特工控制台首页</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        shieldDark: "#05101b",
+        shieldBlue: "#0f2b48",
+        shieldGlow: "#0099ff",
+        shieldDanger: "#ff2a2a",
+        shieldWarn: "#ffcc00",
+        shieldPurple: "#b76cf0"
+      },
+      fontFamily: {
+        mono: ["Consolas", "Monaco", "monospace"],
+      },
+    },
+  };
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  min-height:100vh;
+  font-family:Consolas,monospace;
+  color:#e2e8f0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0,153,255,0.12),transparent 26%),
+    radial-gradient(circle at 80% 10%, rgba(0,153,255,0.08),transparent 22%),
+    linear-gradient(180deg,#05101b 0%,#07203a 50%,#05101b 100%);
+  overflow:hidden;
+  position:relative;
+}
+body::before{
+  content:"";
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,153,255,0.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,153,255,0.06) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+.scanline{
+  position:fixed;inset:0;pointer-events:none;z-index:1;
+}
+.scanline::after{
+  content:"";
+  position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,transparent,#0099ff,transparent);
+  animation:scan 3.5s linear infinite;
+  filter:blur(1px);
+}
+@keyframes scan{
+  0%{top:0;opacity:0.85;}
+  100%{top:100%;opacity:0;}
+}
+.glow-border{
+  border:1px solid rgba(0,153,255,0.4);
+  box-shadow:0 0 8px rgba(0,153,255,0.25),inset 0 0 6px rgba(0,153,255,0.15);
+}
+.glow-text{
+  color:#0099ff;
+  text-shadow:0 0 7px #0099ff;
+}
+.glow-red{
+  color:#ff2a2a;
+  text-shadow:0 0 6px #ff2a2a;
+}
+.glow-yellow{
+  color:#ffcc00;
+  text-shadow:0 0 6px #ffcc00;
+}
+.glow-purple{
+  color:#b76cf0;
+  text-shadow:0 0 6px #b76cf0;
+}
+.blink{animation:blink 1.2s infinite;}
+@keyframes blink{
+  0%,49%{opacity:1;}
+  50%,100%{opacity:0.2;}
+}
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;width:260px;
+  background:linear-gradient(180deg,rgba(15,43,72,0.92),rgba(5,16,27,0.95));
+  transition:transform 0.3s ease;
+  z-index:10;
+  padding:24px 16px;
+}
+.sidebar.collapse{transform:translateX(-100%);}
+.sidebar-title{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;
+}
+.sidebar-logo{
+  width:42px;height:42px;border-radius:50%;
+  border:2px solid #0099ff;
+  box-shadow:0 0 10px rgba(0,153,255,0.4);
+  overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:#05101b;
+  font-size:22px;
+  color:#0099ff;
+  font-weight:bold;
+}
+.menu-item{
+  width:100%;padding:12px 14px;margin-bottom:8px;
+  background:rgba(0,153,255,0.08);
+  border:1px solid rgba(0,153,255,0.25);
+  color:#cbd5e1;
+  text-align:left;cursor:pointer;
+  transition:all 0.2s;
+  font-family:Consolas,monospace;
+}
+.menu-item:hover{
+  background:rgba(0,153,255,0.2);
+  border-color:#0099ff;
+}
+.menu-item.active{
+  background:rgba(0,153,255,0.25);
+  border-color:#0099ff;
+}
+.main-wrap{
+  margin-left:260px;
+  min-height:100vh;
+  padding:20px;
+  position:relative;
+  z-index:2;
+  transition:margin-left 0.3s ease;
+}
+.main-wrap.expand{margin-left:0;}
+.top-bar{
+  width:100%;
+  border:1px solid rgba(0,153,255,0.4);
+  box-shadow:0 0 8px rgba(0,153,255,0.25),inset 0 0 6px rgba(0,153,255,0.15);
+  background:rgba(15,43,72,0.8);
+  padding:14px 20px;
+  border-radius:4px;
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:20px;
+}
+.content-panel{
+  border:1px solid rgba(0,153,255,0.4);
+  box-shadow:0 0 8px rgba(0,153,255,0.25),inset 0 0 6px rgba(0,153,255,0.15);
+  background:rgba(15,43,72,0.75);
+  min-height:calc(100vh - 140px);
+  padding:24px;
+  border-radius:4px;
+  overflow-y:auto;
+}
+.page-tab{display:none;}
+.page-tab.active{display:block !important;}
+.event-card{
+  border:1px solid rgba(0,153,255,0.4);
+  box-shadow:0 0 8px rgba(0,153,255,0.25),inset 0 0 6px rgba(0,153,255,0.15);
+  background:rgba(5,16,27,0.65);
+  padding:18px;margin-bottom:14px;border-radius:4px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.event-card:hover{
+  border-color:#0099ff;
+  box-shadow:0 0 12px rgba(0,153,255,0.4),inset 0 0 10px rgba(0,153,255,0.2);
+  transform:translateY(-1px);
+}
+.pagination{
+  display:flex;gap:10px;align-items:center;margin-top:20px;
+}
+.pagination button{
+  padding:6px 14px;border:1px solid #0099ff66;background:rgba(0,153,255,0.1);
+  color:#0099ff;cursor:pointer;
+}
+.pagination button:disabled{opacity:0.3;cursor:not-allowed;}
+#map{
+  width:100%;
+  height:480px;
+  border:1px solid rgba(0,153,255,0.4);
+  border-radius:4px;
+}
+.modal{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.7);
+  z-index:9999;
+  display:none;
+  align-items:center;justify-content:center;
+}
+.modal-box{
+  width:420px;
+  max-width:92vw;
+  max-height:86vh;
+  overflow-y:auto;
+  padding:24px;
+  border:1px solid #0099ff;
+  border-radius:4px;
+  background:#05101b;
+  box-shadow:0 0 20px rgba(0,153,255,0.4),inset 0 0 12px rgba(0,153,255,0.15);
+}
+input, select, textarea {
+  color:#000000 !important;
+}
+::placeholder {
+  color:#999999 !important;
+}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:rgba(0,153,255,0.45);border-radius:3px;}
+::-webkit-scrollbar-track{background:#05101b;}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<!--成功弹窗-->
+<div id="successModal" class="modal">
+  <div class="modal-box">
+    <i class="fa fa-check-circle glow-text text-3xl"></i>
+    <h3 class="glow-text text-lg mt-3">提交成功</h3>
+    <p class="text-slate-300 text-sm mt-2" id="modalMsg">表单已提交至神盾局后台审批队列</p>
+    <button onclick="closeModal()" class="mt-4 py-2 px-4 border border-[#0099ff66] bg-[#0099ff22] glow-text">确认</button>
+  </div>
+</div>
+<!--档案详情弹窗-->
+<div id="archiveDetailModal" class="modal">
+  <div class="modal-box">
+    <div class="flex justify-between items-start mb-3">
+      <h3 class="glow-text text-lg" id="detailTitle">档案详情</h3>
+      <button onclick="closeDetail()" class="text-slate-400 hover:text-white"><i class="fa fa-times"></i></button>
+    </div>
+    <div class="text-xs text-slate-400 mb-2" id="detailCode"></div>
+    <div class="text-sm text-slate-200 leading-relaxed mb-3" id="detailContent"></div>
+    <div class="text-xs text-slate-400 mb-1" id="detailDanger"></div>
+    <div class="text-xs text-slate-400 mb-3" id="detailNote"></div>
+    <div class="text-xs glow-text mb-3" id="detailCategory"></div>
+    <button onclick="closeDetail()" class="py-2 px-4 border border-[#0099ff66] bg-[#0099ff22] glow-text">关闭</button>
+  </div>
+</div>
+
+<aside id="sidebar" class="sidebar">
+  <div class="sidebar-title">
+    <div class="flex items-center gap-3">
+      <div class="sidebar-logo">S</div>
+      <h2 class="glow-text text-lg">S.H.I.E.L.D.</h2>
+    </div>
+    <button onclick="toggleSide()" class="text-slate-300"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="nav-menu">
+    <button class="menu-item active" onclick="switchPage('eventPage',this)">
+      <i class="fa fa-exclamation-circle mr-2 glow-text"></i>实时大事件
+    </button>
+    <button class="menu-item" onclick="switchPage('equipPage',this)">
+      <i class="fa fa-rocket mr-2 glow-text"></i>装备请领
+    </button>
+    <button class="menu-item" onclick="switchPage('archivePage',this)">
+      <i class="fa fa-book mr-2 glow-text"></i>档案查询
+    </button>
+    <button class="menu-item" onclick="switchPage('mapPage',this)">
+      <i class="fa fa-globe mr-2 glow-text"></i>地图搜索
+    </button>
+    <button class="menu-item" onclick="switchPage('missionPage',this)">
+      <i class="fa fa-file-text-o mr-2 glow-text"></i>出勤报批
+    </button>
+    <button class="menu-item" onclick="switchPage('logUploadPage',this)">
+      <i class="fa fa-clipboard mr-2 glow-text"></i>任务日志上报
+    </button>
+    <button class="menu-item" onclick="switchPage('recordPage',this)">
+      <i class="fa fa-history mr-2 glow-text"></i>审批记录
+    </button>
+  </div>
+</aside>
+
+<div id="mainWrap" class="main-wrap">
+  <div class="top-bar">
+    <div class="flex gap-3 items-center">
+      <button onclick="toggleSide()" class="text-slate-200"><i class="fa fa-bars fa-lg"></i></button>
+      <span class="glow-text">特工终端控制台</span>
+    </div>
+    <div class="flex gap-6 items-center">
+      <span>特工ID：<span class="glow-text" id="showAgentId"></span></span>
+      <span><span class="blink glow-text">●</span> 在线 | 权限：LEVEL4</span>
+      <button onclick="logoutReturn()" class="text-red-400 hover:text-red-300 text-sm">
+        <i class="fa fa-sign-out"></i> 登出
+      </button>
+    </div>
+  </div>
+
+  <div class="content-panel">
+    <!--实时大事件-->
+    <div id="eventPage" class="page-tab active">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-warning mr-2"></i>全球实时大事件监测</h2>
+      <div class="event-card">
+        <div class="flex justify-between">
+          <h3 class="glow-yellow">【监测】空间微裂隙持续波动</h3>
+          <span class="text-xs text-slate-400">更新时间：实时</span>
+        </div>
+        <p class="text-sm mt-2">多地监测到微弱空间能量扰动，暂无大规模入侵迹象，持续追踪能量来源。</p>
+        <p class="text-xs mt-2 text-slate-400">威胁等级：CAT-2 | 建议：常规持续监测</p>
+      </div>
+      <div class="event-card">
+        <div class="flex justify-between">
+          <h3 class="glow-red">【重点事件】东欧异常人形目标活动</h3>
+          <span class="text-xs text-slate-400">更新时间：10分钟前</span>
+        </div>
+        <p class="text-sm mt-2">检测到疑似超能力目标集群移动，外勤小队已前往现场侦查，等待传回情报。</p>
+        <p class="text-xs mt-2 text-slate-400">威胁等级：CAT-4 | 建议：保持通讯待命</p>
+      </div>
+      <div class="event-card">
+        <div class="flex justify-between">
+          <h3 class="glow-purple">【档案事件】纽约大战遗留能量残留</h3>
+          <span class="text-xs text-slate-400">更新时间：2小时前</span>
+        </div>
+        <p class="text-sm mt-2">奇塔瑞遗迹区域定期能量扫描，数值稳定，无异常激增。</p>
+        <p class="text-xs mt-2 text-slate-400">威胁等级：CAT-1 | 建议：月度例行复查</p>
+      </div>
+    </div>
+
+    <!--装备请领-->
+    <div id="equipPage" class="page-tab">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-rocket mr-2"></i>装备请领申请</h2>
+      <div class="space-y-4 max-w-xl">
+        <div>
+          <label class="block text-sm glow-text mb-1">装备类型</label>
+          <select id="equipType" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+            <option>防护作战套装</option>
+            <option>能量武器</option>
+            <option>侦查探测设备</option>
+            <option>通讯加密设备</option>
+            <option>载具调配</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">申领数量</label>
+          <input id="equipNum" type="number" min="1" value="1" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">申领理由/任务编号</label>
+          <textarea id="equipReason" rows="4" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none" placeholder="填写任务编号与装备使用用途"></textarea>
+        </div>
+        <button onclick="submitEquip()" class="py-2 px-6 border border-[#0099ff66] bg-[#0099ff22] glow-text hover:bg-[#0099ff44]">提交申领审批</button>
+      </div>
+    </div>
+
+    <!--档案查询-->
+    <div id="archivePage" class="page-tab">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-book mr-2"></i>超级人类 & 事件档案检索</h2>
+      <div class="mb-4 flex flex-wrap gap-3 items-center">
+        <select id="archiveCategory" class="bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+          <option value="all">全部档案</option>
+          <option value="person">人物档案</option>
+          <option value="event">事件档案</option>
+          <option value="location">地点档案</option>
+          <option value="equip">装备档案</option>
+        </select>
+        <input id="archiveSearchInput" type="text" placeholder="输入档案编号 / 事件名称 / 目标代号 / 装备 / 地点检索" class="w-full max-w-lg bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+        <button onclick="renderArchive()" class="py-2 px-6 border border-[#0099ff66] bg-[#0099ff22] glow-text hover:bg-[#0099ff44]">检索档案</button>
+      </div>
+      <p class="text-slate-400 text-sm mb-4">提示：点击档案卡片查看详情。部分高等级档案需要 LEVEL4 特工权限解锁访问。</p>
+      <div id="archiveResult"></div>
+      <div class="pagination">
+        <button id="prevPage" onclick="prevArchivePage()">上一页</button>
+        <span>当前页：<span id="archivePageNum">1</span> / <span id="archiveTotalPage">1</span></span>
+        <button id="nextPage" onclick="nextArchivePage()">下一页</button>
+      </div>
+    </div>
+
+    <!--地图页面-->
+    <div id="mapPage" class="page-tab">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-globe mr-2"></i>全球态势地图检索</h2>
+      <p class="text-slate-300 mb-4">输入城市名称检索定位，地图标记MCU重大事件点位，查看当地异常事件记录。</p>
+      <div class="flex gap-3 items-center mb-4">
+        <input id="mapSearchInput" type="text" placeholder="城市名称" class="w-full max-w-lg bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+        <button onclick="searchMap()" class="py-2 px-6 border border-[#0099ff66] bg-[#0099ff22] glow-text hover:bg-[#0099ff44]">定位检索</button>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <!--出勤报批-->
+    <div id="missionPage" class="page-tab">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-file-text-o mr-2"></i>外勤出勤任务报批</h2>
+      <div class="space-y-4 max-w-xl">
+        <div>
+          <label class="block text-sm glow-text mb-1">任务地点</label>
+          <input id="missionLoc" type="text" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none" placeholder="城市/坐标">
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">任务威胁等级</label>
+          <select id="missionLevel" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+            <option>LEVEL1 常规侦查</option>
+            <option>LEVEL2 目标监视</option>
+            <option>LEVEL3 现场介入</option>
+            <option>LEVEL4 高危作战</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">任务简述与风险评估</label>
+          <textarea id="missionDesc" rows="4" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none" placeholder="填写任务目标、潜在风险、随行特工"></textarea>
+        </div>
+        <button onclick="submitMission()" class="py-2 px-6 border border-[#0099ff66] bg-[#0099ff22] glow-text hover:bg-[#0099ff44]">提交出勤审批</button>
+      </div>
+    </div>
+
+    <!--任务日志上报-->
+    <div id="logUploadPage" class="page-tab">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-clipboard mr-2"></i>外勤任务日志上报</h2>
+      <p class="text-slate-400 text-sm mb-4">外勤任务结束后填写任务汇报，记录任务过程、目标状态、伤亡物资损耗，提交存入本地审批记录。</p>
+      <div class="space-y-4 max-w-xl">
+        <div>
+          <label class="block text-sm glow-text mb-1">任务编号</label>
+          <input id="logTaskId" type="text" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none" placeholder="例如：SHD‑734‑A">
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">任务执行地点</label>
+          <input id="logLocation" type="text" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none" placeholder="城市 / 坐标">
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">任务结果</label>
+          <select id="logResult" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none">
+            <option>任务成功，目标完成</option>
+            <option>部分完成，存在遗留风险</option>
+            <option>任务中止，被迫撤离</option>
+            <option>任务失败</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm glow-text mb-1">任务完整汇报日志</label>
+          <textarea id="logContent" rows="6" class="w-full bg-shieldDark border border-[#0099ff44] p-2 outline-none" placeholder="记录交战情况、目标状态、人员损伤、装备损耗、后续建议等详细情报"></textarea>
+        </div>
+        <button onclick="submitTaskLog()" class="py-2 px-6 border border-[#0099ff66] bg-[#0099ff22] glow-text hover:bg-[#0099ff44]">上报任务日志</button>
+      </div>
+    </div>
+
+    <!--审批记录页面-->
+    <div id="recordPage" class="page-tab">
+      <h2 class="text-xl glow-text mb-6"><i class="fa fa-history mr-2"></i>特工审批申请记录</h2>
+      <div id="recordList"></div>
+      <button onclick="clearAllRecord()" class="mt-4 py-2 px-4 border border-[#ff2a2a66] bg-[#ff2a2a22] glow-red">清空本地记录</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function getUrlParam(name){
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+let map = null;
+let mapInited = false;
+
+window.onload = function(){
+  try{
+    const agentId = getUrlParam("agent");
+    if(agentId){
+      document.getElementById("showAgentId").innerText = agentId;
+    }else{
+      document.getElementById("showAgentId").innerText = "TEST-0001";
+    }
+    initArchiveData();
+    renderArchive();
+    renderRecord();
+  }catch(e){
+    console.error("页面初始化异常：",e);
+  }
+}
+
+let archiveData = [];
+let archiveCurrentPage = 1;
+const archivePageSize = 8;
+
+function initArchiveData(){
+archiveData = [
+//事件档案
+{cat:"event",catName:"事件档案",title:"【事件档案】纽约大战｜代号：复仇者集结",code:"M-001",content:"洛基通过宇宙魔方开启空间传送门，奇塔瑞军队入侵纽约。复仇者初代小队在曼哈顿展开城市作战，最终关闭传送门并击退入侵。",danger:"CAT-5",note:"地点：美国纽约曼哈顿"},
+{cat:"event",catName:"事件档案",title:"【事件档案】索科维亚事件｜奥创纪元",code:"M-002",content:"AI奥创试图利用浮空大陆撞击地球完成人类灭绝。复仇者联合绯红女巫、快银将其摧毁，造成大量平民伤亡，并引发全球英雄管控争议。",danger:"CAT-5",note:"地点：索科维亚"},
+{cat:"event",catName:"事件档案",title:"【事件档案】莱比锡机场大战｜内战",code:"M-003",content:"《索科维亚协议》导致复仇者分裂。钢铁侠阵营与美国队长阵营在莱比锡机场正面冲突，九头蛇暗杀计划与巴基身份同步曝光。",danger:"CAT-4",note:"地点：德国莱比锡机场"},
+{cat:"event",catName:"事件档案",title:"【事件档案】无限战争｜瓦坎达战役",code:"M-004",content:"灭霸大军进攻瓦坎达争夺心灵宝石，复仇者与瓦坎达军队联合抵抗。灭霸最终集齐六颗无限宝石，打响指造成宇宙半数生命灰化。",danger:"CAT-6",note:"地点：瓦坎达"},
+{cat:"event",catName:"事件档案",title:"【事件档案】终局之战｜时间劫持",code:"M-005",content:"幸存复仇者穿越时间收集无限宝石，制造新手套逆转响指。2014年灭霸舰队穿越至主宇宙，复仇者展开终局决战，钢铁侠牺牲。",danger:"CAT-6",note:"地点：复仇者基地遗址"},
+{cat:"event",catName:"事件档案",title:"【事件档案】阿斯加德诸神黄昏",code:"M-006",content:"死神海拉回归阿斯加德并夺取王权。诸神黄昏预言触发，苏尔特尔摧毁阿斯加德，雷神带领难民撤离后遭遇灭霸拦截。",danger:"CAT-5",note:"地点：阿斯加德"},
+{cat:"event",catName:"事件档案",title:"【事件档案】黑暗世界｜以太粒子危机",code:"M-007",content:"黑暗精灵玛勒基斯试图在九界重合时释放以太粒子，将宇宙重归黑暗。雷神联合洛基在伦敦阻止危机，以太粒子随后被转交收藏者保管。",danger:"CAT-4",note:"地点：伦敦"},
+{cat:"event",catName:"事件档案",title:"【事件档案】圣凡冈萨契约｜多玛姆入侵",code:"M-008",content:"黑暗维度领主多玛姆企图吞噬地球。奇异博士利用时间宝石进入无限循环谈判，迫使多玛姆放弃入侵并解除圣凡冈萨契约。",danger:"CAT-5",note:"地点：纽约至圣所"},
+{cat:"event",catName:"事件档案",title:"【事件档案】九头蛇洞察计划",code:"M-009",content:"九头蛇潜伏神盾局内部，利用三艘天空母舰实施全球定点暗杀。美国队长、黑寡妇揭露真相并摧毁系统，神盾局公开解体。",danger:"CAT-5",note:"地点：华盛顿特区，三曲翼大楼"},
+{cat:"event",catName:"事件档案",title:"【事件档案】泰坦星之战",code:"M-010",content:"钢铁侠、蜘蛛侠、奇异博士与银河护卫队在泰坦星设局夺取无限手套。计划失败，奇异博士交出时间宝石换取托尼存活。",danger:"CAT-6",note:"地点：泰坦星"},
+{cat:"event",catName:"事件档案",title:"【事件档案】虚无之地之战",code:"M-011",content:"银河护卫队在虚无之地收集力量宝石，罗南前来抢夺。星爵团队暂时结盟，成功将宝石转交新星军团保管。",danger:"CAT-4",note:"地点：虚无之地 Knowhere"},
+{cat:"event",catName:"事件档案",title:"【事件档案】蚁人行动｜量子隧道首次实战",code:"M-012",content:"斯科特·朗初次穿上蚁人战衣潜入皮姆科技，阻止达伦·克劳斯将黄蜂战衣技术出售给九头蛇。",danger:"CAT-3",note:"地点：旧金山皮姆科技总部"},
+{cat:"event",catName:"事件档案",title:"【事件档案】复仇者基地爆炸事件",code:"M-013",content:"九头蛇分支袭击复仇者基地，引爆大量武器与实验物资。复仇者成功撤离关键人员与数据，但基地设施严重损毁。",danger:"CAT-4",note:"地点：复仇者基地"},
+{cat:"event",catName:"事件档案",title:"【事件档案】蜘蛛网络泄露事件",code:"M-014",content:"神秘客公开暴露蜘蛛侠身份，并伪造无人机影像抹黑英雄。彼得·帕克身份危机引发社会对超级英雄信任再度动摇。",danger:"CAT-3",note:"地点：欧洲多国"},
+{cat:"event",catName:"事件档案",title:"【事件档案】西景小镇现实扭曲事件",code:"M-015",content:"旺达因悲痛创造西景幻境，用混沌魔法改写小镇现实，天剑局介入调查，幻境解除后旺达遁入深山学习黑暗神书。",danger:"CAT‑5",note:"地点：新泽西西景小镇"},
+{cat:"event",catName:"事件档案",title:"【事件档案】康之变体多元宇宙冲突",code:"M‑016",content:"时间变异管理局曝光，大量康的变体撕裂多元宇宙，时间线疯狂分支，引发多重现实互相碰撞危机。",danger:"CAT‑6",note:"地点：多元宇宙全域"},
+{cat:"event",catName:"事件档案",title:"【事件档案】十环帮上海大战",code:"M‑017",content:"尚气父亲文武释放黑暗维度生物，十环帮大本营被黑暗怪物攻陷，尚气与妹妹合力终结危机。",danger:"CAT‑4",note:"地点：中国，塔罗秘境"},
+{cat:"event",catName:"事件档案",title:"【事件档案】永恒族苏醒｜天神族出世危机",code:"M‑018",content:"永恒族内部爆发分裂，阻止天神族从地球胚胎出世，部分永恒族成员倒戈。",danger:"CAT‑6",note:"地点：全球多处"},
+
+//人物档案
+{cat:"person",catName:"人物档案",title:"【人物档案】钢铁侠 / 托尼·斯塔克",code:"P-001",content:"斯塔克工业创始人，天才工程师，初代复仇者。开发多款钢铁战甲，终局之战中打响指消灭灭霸大军后牺牲。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】美国队长 / 史蒂夫·罗杰斯",code:"P-002",content:"超级士兵计划产物，初代复仇者领袖。持有振金盾牌，索科维亚协议事件中选择保护巴基，战后归还宝石并留在过去。",danger:"CAT-1（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】雷神 / 索尔·奥丁森",code:"P-003",content:"阿斯加德神王，奥丁长子。诸神黄昏后失去家园，无限战争未能阻止灭霸，终局之战后加入银河护卫队。",danger:"CAT-3（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】洛基·劳菲森",code:"P-004",content:"冰霜巨人劳菲之子，阿斯加德收养的王子，诡计之神。纽约大战主谋，后期立场摇摆，无限战争开篇被灭霸杀害。",danger:"CAT-4",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】绯红女巫 / 旺达·马克西莫夫",code:"P-005",content:"混沌魔法持有者，能扭曲现实与心灵操控。奥创纪元失去快银，西景小镇创造虚假家庭，多元宇宙中力量极强。",danger:"CAT-5",note:"权限：LEVEL4解锁"},
+{cat:"person",catName:"人物档案",title:"【人物档案】奇异博士 / 史蒂芬·斯特兰奇",code:"P-006",content:"至尊法师，时间宝石保管人，守护地球免受多元维度入侵。能预见未来千万种可能性，并观测唯一胜利时间线。",danger:"CAT-3（友方）",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】灭霸，泰坦霸主",code:"P-007",content:"泰坦星最后幸存者，目标是收集六颗无限宝石并消灭宇宙一半生命。无限战争成功打响指，终局之战被逆转消灭。",danger:"CAT-6",note:"权限：LEVEL4解锁"},
+{cat:"person",catName:"人物档案",title:"【人物档案】黑寡妇 / 娜塔莎·罗曼诺夫",code:"P-008",content:"红房训练顶级特工，复仇者早期成员。精通格斗、谍报与渗透，终局之战中在沃米尔牺牲换取灵魂宝石。",danger:"CAT-1（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】绿巨人 / 布鲁斯·班纳",code:"P-009",content:"伽马射线事故后可变身浩克，力量随愤怒无限上涨。终局之战融合班纳与浩克人格，佩戴无限手套完成逆转响指。",danger:"CAT-4",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】星爵 / 彼得·奎尔",code:"P-010",content:"银河护卫队队长，半天神血统，擅长枪战与飞船驾驶。性格冲动，泰坦星一战曾短暂干扰夺取无限手套计划。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】卡魔拉",code:"P-011",content:"泽侯贝里族幸存者，灭霸养女，宇宙顶尖刺客。知晓灵魂宝石位置，被灭霸带往沃米尔献祭身亡。",danger:"CAT-2（友方）",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】星云",code:"P-012",content:"灭霸养女，全身大量机械改造。早期效忠灭霸，后期反叛并协助复仇者穿越时间线。",danger:"CAT-2（友方）",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】火箭浣熊",code:"P-013",content:"基因改造生物，天才武器工程师，银河护卫队技术担当。擅长星际飞船改装与重型武器制造。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】格鲁特",code:"P-014",content:"花神巨像族树人，仅可表达“I am Groot”。曾牺牲手臂打造风暴战斧斧柄，并多次为护卫队承担致命风险。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】德拉克斯毁灭者",code:"P-015",content:"家人被罗南杀害，一心复仇。肉身强悍，几乎免疫物理伤害，但对隐喻与社交信号理解有限。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】蚁人 / 斯科特·朗",code:"P-016",content:"皮姆粒子使用者，可自由放大缩小并进入量子领域。终局之战中提出时间劫持方案，是逆转响指的关键人物之一。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】黄蜂女 / 霍普·范·戴因",code:"P-017",content:"皮姆博士之女，第二代黄蜂女。黄蜂战衣具备飞行、缩小与生物刺攻击能力，是蚁人搭档与关键技术支援。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】幻视",code:"P-018",content:"由奥创、托尼与布鲁斯共同创造的合成生命体，搭载心灵宝石。终局之战中被灭霸强行取走宝石后死亡。",danger:"CAT-3（友方）",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】战争机器 / 詹姆斯·罗迪",code:"P-019",content:"美国空军上校，钢铁侠盟友。战争机器战甲火力强大，终局之战中参与复仇者最终集结。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】鹰眼 / 克林特·巴顿",code:"P-020",content:"神盾局顶级弓箭手，复仇者早期成员。擅长远程狙击与战术潜入，终局之战中作为浪人回归并参与最终大战。",danger:"CAT-1（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】猎鹰 / 山姆·威尔逊",code:"P-021",content:"前美军伞兵，使用高科技翼装。美国队长选定其继承振金盾牌，后成为新一代美国队长。",danger:"CAT-1（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】冬日战士 / 巴基·巴恩斯",code:"P-022",content:"美国队长旧友，被九头蛇改造为冬日刺客。记忆恢复后加入复仇者，终局之战中参与最终集结。",danger:"CAT-3",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】蜘蛛侠 / 彼得·帕克",code:"P-023",content:"被辐射蜘蛛咬后获得蜘蛛能力，能力包括攀爬、蜘蛛感应与超强力量。曾加入复仇者对抗灭霸。",danger:"CAT-2（友方）",note:"权限：LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】黑豹 / 特查拉",code:"P-024",content:"瓦坎达国王，黑豹守护者。拥有振金战衣与心形草加持，是无限战争瓦坎达战役的核心指挥者。",danger:"CAT-2（友方）",note:"权限：LEVEL3可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】洛基时间变体",code:"P-025",content:"时间分支中的洛基变体，脱离主时间线后被时间变异管理局捕获，引发更复杂的时间分支与多元宇宙危机。",danger:"CAT-4",note:"权限：LEVEL4解锁"},
+{cat:"person",catName:"人物档案",title:"【人物档案】尚气",code:"P‑026",content:"十环帮首领文武之子，掌握上古十环武艺，阻止黑暗维度怪物降临地球。",danger:"CAT‑2（友方）",note:"权限LEVEL2可查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】文武（十环）",code:"P‑027",content:"千年寿命的十环帮首领，依靠十环力量征战千年，渴望召唤亡妻，最终被黑暗生物杀害。",danger:"CAT‑4",note:"权限LEVEL3查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】永恒族‑瑟西",code:"P‑028",content:"永恒族成员，物质转化能力，负责阻止天神族出世。",danger:"CAT‑3（友方）",note:"权限LEVEL3查阅"},
+{cat:"person",catName:"人物档案",title:"【人物档案】征服者·康",code:"P‑029",content:"多元宇宙征服者，掌握极高科技，统治无数时间线，变体遍布多元宇宙。",danger:"CAT‑6",note:"最高机密LEVEL4"},
+{cat:"person",catName:"人物档案",title:"【人物档案】海拉 死亡女神",code:"P‑030",content:"奥丁长女，阿斯加德前征服者，诸神黄昏主要反派，可以凭空制造神域武器。",danger:"CAT‑5",note:"权限LEVEL3查阅"},
+
+//地点档案
+{cat:"location",catName:"地点档案",title:"【地点档案】瓦坎达",code:"L-001",content:"非洲与世隔绝王国，振金主产地，科技水平远超外部世界。无限战争主战场，也是心灵宝石重要存放地。",danger:"CAT-2",note:"外交受限区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】阿斯加德",code:"L-002",content:"九界之一，阿萨神族家园。诸神黄昏事件中被海拉与苏尔特尔摧毁，星球毁灭后难民撤离。",danger:"CAT-5",note:"现已毁灭"},
+{cat:"location",catName:"地点档案",title:"【地点档案】至圣所（纽约）",code:"L-003",content:"至尊法师总部，地球三大至圣所之一。守护地球维度屏障，多玛姆入侵事件发生于此。",danger:"CAT-3",note:"魔法防护区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】三曲翼大楼",code:"L-004",content:"华盛顿神盾局总部。九头蛇核心潜伏点，洞察计划指挥中心，曝光后严重损毁。",danger:"CAT-3",note:"废弃高危区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】沃米尔星球",code:"L-005",content:"灵魂宝石所在地，红骷髅看守。获取宝石必须献祭挚爱之人，黑寡妇于此牺牲。",danger:"CAT-6",note:"禁止无授权外勤"},
+{cat:"location",catName:"地点档案",title:"【地点档案】复仇者基地（纽约州）",code:"L-006",content:"复仇者后期总部，配备训练场、停机坪与医疗舱。终局之战主战场，后被灭霸舰队摧毁。",danger:"CAT-2",note:"战后废墟区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】虚无之地 Knowhere",code:"L-007",content:"被挖空的天神组头颅，星际黑市聚集地。收藏家博物馆所在地，力量宝石曾存放于此。",danger:"CAT-3",note:"星际灰色地带"},
+{cat:"location",catName:"地点档案",title:"【地点档案】量子领域",code:"L-008",content:"皮姆粒子开启的亚原子维度，时间规则独立。时间劫持计划核心区域，存在未知时空实体。",danger:"CAT-4",note:"无防护进入极易迷失时间线"},
+{cat:"location",catName:"地点档案",title:"【地点档案】尼达维星",code:"L-009",content:"矮人王国，顶级宇宙锻造工坊。风暴战斧与无限手套在此打造，灭霸屠杀大部分矮人。",danger:"CAT-5",note:"几乎废弃"},
+{cat:"location",catName:"地点档案",title:"【地点档案】泰坦星",code:"L-010",content:"灭霸母星，因资源危机人口锐减。复仇者与银河护卫队曾在此设局夺取无限手套。",danger:"CAT-4",note:"低资源警戒区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】伦敦圣坛",code:"L-011",content:"黑暗精灵危机发生地，九界重合时以太粒子在此显现，雷神与洛基联手阻止现实崩塌。",danger:"CAT-4",note:"空间异常区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】旧金山皮姆科技总部",code:"L-012",content:"皮姆博士研究基地，蚁人战衣与黄蜂战衣核心技术诞生地。多次成为九头蛇目标。",danger:"CAT-2",note:"技术保护区"},
+{cat:"location",catName:"地点档案",title:"【地点档案】塔罗秘境",code:"L‑013",content:"隐藏在中国山林中的上古秘境，十环的起源地，封印上古黑暗生物。",danger:"CAT‑4",note:"魔法结界保护区域"},
+{cat:"location",catName:"地点档案",title:"【地点档案】时间变异管理局TVA总部",code:"L‑014",content:"位于时间线之外，负责裁剪时间分支，征服者康建立，内部存在大量多元宇宙物证。",danger:"CAT‑6",note:"跨维度高危地点 LEVEL4"},
+{cat:"location",catName:"地点档案",title:"【地点档案】西景小镇",code:"L‑015",content:"美国新泽西小镇，被旺达混沌魔法完全扭曲现实，制造虚假家庭幻境。",danger:"CAT‑3",note:"残留混沌魔法辐射"},
+
+//装备档案
+{cat:"equip",catName:"装备档案",title:"【装备档案】美队振金盾牌",code:"E-001",content:"霍华德·斯塔克打造，纯振金材质，几乎不可摧毁。可反弹能量攻击，也可作为投掷武器。",danger:"CAT-2",note:"类型：近战防御武器"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】雷神之锤 Mjolnir",code:"E-002",content:"奥丁施加咒语，只有配得上之人才能举起。可引导雷电并辅助飞行，诸神黄昏中被海拉捏碎。",danger:"CAT-3",note:"类型：神域魔法武器"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】风暴战斧 Stormbreaker",code:"E-003",content:"尼达维星矮人打造，可召唤彩虹桥并引导雷电，曾重创灭霸。斧柄由格鲁特手臂构成。",danger:"CAT-4",note:"类型：神域重型武器"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】无限手套",code:"E-004",content:"可镶嵌六颗无限宝石，持有者可改写宇宙现实。生物肉体承受会遭受巨大能量灼伤。",danger:"CAT-6",note:"类型：宇宙级法器｜最高机密 LEVEL4"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】钢铁侠 Mark 85战甲",code:"E-005",content:"托尼最终型号，纳米技术，可即时重组并搭载大量武器。终局之战中用于抢夺无限宝石并打响指。",danger:"CAT-3",note:"类型：纳米作战装甲"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】阿戈摩托之眼（时间宝石）",code:"E-006",content:"至尊法师法器，内置时间宝石，可操控局部时间并查看未来可能性。无限战争中被灭霸夺取。",danger:"CAT-5",note:"类型：无限宝石载体｜LEVEL4"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】蚁人战衣",code:"E-007",content:"皮姆博士研发，利用皮姆粒子改变分子密度，实现放大缩小，可进入亚原子量子领域。",danger:"CAT-3",note:"类型：分子转换作战套装"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】黄蜂女战衣",code:"E-008",content:"霍普的黄蜂战衣，自带微型翅膀实现飞行，腕部发射生物刺，缩小能力稳定。",danger:"CAT-3",note:"类型：纳米飞行作战套装"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】星爵元素枪",code:"E-009",content:"星爵手持双枪，可发射多种能量弹药，适合星际作战，威力足以击穿外星战舰装甲。",danger:"CAT-2",note:"类型：星际能量枪械"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】力量宝石（宇宙球体）",code:"E-010",content:"六颗无限宝石之一，蕴含巨大宇宙原始能量。肉体直接接触极易被吞噬，曾存放于虚无之地。",danger:"CAT-6",note:"类型：无限宝石｜LEVEL4机密"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】心灵宝石权杖",code:"E-011",content:"洛基入侵地球时使用的权杖，内含心灵宝石。可控制心智，后被用于创造幻视。",danger:"CAT-5",note:"类型：无限宝石载体｜LEVEL4"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】空间宝石（宇宙魔方）",code:"E-012",content:"六颗无限宝石之一，可开启空间传送门。纽约大战关键目标，后被灭霸夺取。",danger:"CAT-5",note:"类型：无限宝石｜LEVEL4机密"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】现实宝石（以太粒子）",code:"E-013",content:"六颗无限宝石之一，能改写现实规则。黑暗精灵玛勒基斯曾试图用它重归宇宙黑暗。",danger:"CAT-5",note:"类型：无限宝石｜LEVEL4机密"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】时间变异管理局时间器",code:"E-014",content:"用于测量、记录与重置时间分支的精密设备。TVA核心工具，失控可能引发时间分裂。",danger:"CAT-4",note:"类型：时间管理设备｜LEVEL4"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】振金长矛与黑豹战衣",code:"E-015",content:"瓦坎达王室战斗装备，振金材质，可吸收与释放冲击，是特查拉核心战斗系统。",danger:"CAT-3",note:"类型：王室战斗系统"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】十环",code:"E‑016",content:"十枚上古环形武器，来源未知，能够赋予持有者永生、超级力量、能量投射。",danger:"CAT‑5",note:"类型上古神器｜LEVEL3查阅"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】黑暗神书",code:"E‑017",content:"来自黑暗维度的魔法典籍，记载混沌魔法，会腐蚀阅读者心智，旺达主要力量来源。",danger:"CAT‑5",note:"魔法违禁典籍 LEVEL4"},
+{cat:"equip",catName:"装备档案",title:"【装备档案】天剑局航天作战装甲",code:"E‑018",content:"天剑局开发的太空作战战甲，适合星际任务，搭载能量武器。",danger:"CAT‑3",note:"类型航天作战套装"}
+];
+}
+
+//切换页面函数
+function switchPage(targetId, btnDom){
+  //清除全部激活
+  document.querySelectorAll('.page-tab').forEach(t=>{
+    t.classList.remove('active');
+  });
+  document.querySelectorAll('.menu-item').forEach(b=>{
+    b.classList.remove('active');
+  });
+  //激活目标
+  document.getElementById(targetId).classList.add('active');
+  btnDom.classList.add('active');
+
+  if(targetId === "mapPage"){
+    initMap();
+    setTimeout(()=>{
+      if(map) map.invalidateSize();
+    },180);
+  }
+}
+
+function renderArchive(){
+  try{
+    const catSel = document.getElementById("archiveCategory").value;
+    const keyword = document.getElementById("archiveSearchInput").value.trim().toLowerCase();
+    let filtered = archiveData;
+    if(catSel !== "all"){
+      filtered = filtered.filter(item=>item.cat === catSel);
+    }
+    if(keyword){
+      filtered = filtered.filter(item=>{
+        const fullText = (item.title + item.content + item.code + item.note).toLowerCase();
+        return fullText.includes(keyword);
+      })
+    }
+    const total = filtered.length;
+    const totalPage = Math.ceil(total / archivePageSize);
+    if(archiveCurrentPage > totalPage && totalPage>0) archiveCurrentPage = totalPage;
+    if(archiveCurrentPage < 1) archiveCurrentPage =1;
+    const start = (archiveCurrentPage -1)*archivePageSize;
+    const pageItems = filtered.slice(start, start + archivePageSize);
+    let html = "";
+    if(pageItems.length === 0){
+      html = `<p class="text-slate-400">未匹配任何档案记录</p>`;
+    }else{
+      pageItems.forEach(item=>{
+        html += `
+        <div class="event-card" onclick="openDetail('${item.code}')">
+          <div class="flex justify-between">
+            <h3 class="glow-yellow">${item.title}</h3>
+            <span class="text-xs text-slate-400">档案编号：${item.code}</span>
+          </div>
+          <p class="text-sm mt-2">${item.content}</p>
+          <p class="text-xs mt-2 text-slate-400">威胁等级：${item.danger} | ${item.note}</p>
+        </div>
+        `
+      })
+    }
+    document.getElementById("archiveResult").innerHTML = html;
+    document.getElementById("archivePageNum").innerText = archiveCurrentPage;
+    document.getElementById("archiveTotalPage").innerText = totalPage || 1;
+    document.getElementById("prevPage").disabled = archiveCurrentPage <=1;
+    document.getElementById("nextPage").disabled = archiveCurrentPage >= totalPage;
+  }catch(e){
+    console.error("档案渲染报错：",e);
+  }
+}
+
+function prevArchivePage(){
+  archiveCurrentPage--;
+  renderArchive();
+}
+function nextArchivePage(){
+  archiveCurrentPage++;
+  renderArchive();
+}
+
+function openDetail(code){
+  try{
+    const item = archiveData.find(d=>d.code === code);
+    if(!item) return;
+    document.getElementById("detailTitle").innerText = item.title;
+    document.getElementById("detailCode").innerText = "档案编号：" + item.code;
+    document.getElementById("detailContent").innerText = item.content;
+    document.getElementById("detailDanger").innerText = "威胁等级：" + item.danger;
+    document.getElementById("detailNote").innerText = item.note;
+    document.getElementById("detailCategory").innerText = "类别：" + (item.catName || "未知");
+    document.getElementById("archiveDetailModal").style.display = "flex";
+  }catch(e){
+    console.error("详情弹窗报错：",e);
+  }
+}
+function closeDetail(){
+  document.getElementById("archiveDetailModal").style.display = "none";
+}
+
+function initMap(){
+  if(mapInited) return;
+  try{
+    map = L.map('map').setView([40.7128, -74.0060], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    const markers = [
+      {lat:40.7128,lng:-74.0060,name:"纽约｜纽约大战"},
+      {lat:41.9956,lng:21.4641,name:"索科维亚｜奥创事件"},
+      {lat:51.3982,lng:12.5517,name:"莱比锡｜机场内战"},
+      {lat:-11.056,lng:31.486,name:"瓦坎达｜无限战争"},
+      {lat:51.5074,lng:-0.1278,name:"伦敦｜黑暗精灵危机"}
+    ];
+    markers.forEach(m=>{
+      L.marker([m.lat,m.lng]).addTo(map).bindPopup(`<b>${m.name}</b>`);
+    })
+    mapInited = true;
+  }catch(e){
+    console.error("地图初始化失败：",e);
+  }
+}
+
+function searchMap(){
+  if(!map) return;
+  const city = document.getElementById("mapSearchInput").value.trim().toLowerCase();
+  const pointDict = {
+    "new york":[40.7128, -74.0060],
+    "纽约":[40.7128, -74.0060],
+    "索科维亚":[41.9956,21.4641],
+    "莱比锡":[51.3982,12.5517],
+    "瓦坎达":[-11.056,31.486],
+    "伦敦":[51.5074,-0.1278]
+  }
+  if(pointDict[city]){
+    map.setView(pointDict[city],6);
+  }else{
+    alert("暂未收录该城市坐标");
+  }
+}
+
+function openModal(msg){
+  document.getElementById("modalMsg").innerText = msg;
+  document.getElementById("successModal").style.display="flex";
+}
+function closeModal(){
+  document.getElementById("successModal").style.display="none";
+}
+
+function getRecordList(){
+  try{
+    const raw = localStorage.getItem("shieldRecord");
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    console.error("读取本地审批记录异常，重置记录",e);
+    localStorage.removeItem("shieldRecord");
+    return [];
+  }
+}
+function saveRecordList(list){
+  localStorage.setItem("shieldRecord",JSON.stringify(list));
+}
+function renderRecord(){
+  const list = getRecordList();
+  const wrap = document.getElementById("recordList");
+  if(list.length ===0){
+    wrap.innerHTML = `<p class="text-slate-400">暂无审批申请记录</p>`;
+    return;
+  }
+  let html = "";
+  list.forEach((r)=>{
+    html += `
+    <div class="event-card">
+      <div class="flex justify-between">
+        <h3 class="glow-text">${r.type}</h3>
+        <span class="text-xs text-slate-400">${r.time}</span>
+      </div>
+      <p class="text-sm mt-2 whitespace-pre-wrap">${r.content}</p>
+      <p class="text-xs mt-2 text-slate-400">状态：待审批｜申请人特工ID：${r.agentId}</p>
+    </div>
+    `
+  })
+  wrap.innerHTML = html;
+}
+function addRecord(item){
+  const list = getRecordList();
+  list.unshift(item);
+  saveRecordList(list);
+  renderRecord();
+}
+function clearAllRecord(){
+  if(confirm("确认清空全部本地审批记录？此操作不可恢复！")){
+    localStorage.removeItem("shieldRecord");
+    renderRecord();
+  }
+}
+
+function submitEquip(){
+  const type = document.getElementById("equipType").value;
+  const num = document.getElementById("equipNum").value;
+  const reason = document.getElementById("equipReason").value;
+  const aid = document.getElementById("showAgentId").innerText;
+  const recordItem = {
+    type:"装备申领申请",
+    time:new Date().toLocaleString(),
+    content:`装备类别：${type}｜数量：${num}｜申领理由：${reason}`,
+    agentId:aid
+  }
+  addRecord(recordItem);
+  openModal("装备申领表单已提交，等待后勤部门审批。记录已存入审批列表。");
+}
+
+function submitMission(){
+  const loc = document.getElementById("missionLoc").value;
+  const level = document.getElementById("missionLevel").value;
+  const desc = document.getElementById("missionDesc").value;
+  const aid = document.getElementById("showAgentId").innerText;
+  const recordItem = {
+    type:"外勤出勤报批",
+    time:new Date().toLocaleString(),
+    content:`任务地点：${loc}｜威胁等级：${level}｜任务简述：${desc}`,
+    agentId:aid
+  }
+  addRecord(recordItem);
+  openModal("外勤出勤报批表单提交成功，等待指挥中心审核。记录已存入审批列表。");
+}
+
+function submitTaskLog(){
+  const tid = document.getElementById("logTaskId").value.trim();
+  const loc = document.getElementById("logLocation").value.trim();
+  const res = document.getElementById("logResult").value;
+  const cnt = document.getElementById("logContent").value.trim();
+  const aid = document.getElementById("showAgentId").innerText;
+  if(!tid || !loc || !cnt){
+    alert("任务编号、执行地点、汇报日志内容不能为空");
+    return;
+  }
+  const recordItem = {
+    type:"外勤任务日志上报",
+    time:new Date().toLocaleString(),
+    content:`任务编号：${tid}｜执行地点：${loc}｜任务结果：${res}\n日志详情：${cnt}`,
+    agentId:aid
+  }
+  addRecord(recordItem);
+  openModal("外勤任务日志上报完成，情报已存入本地审批记录页面。");
+  document.getElementById("logTaskId").value = "";
+  document.getElementById("logLocation").value = "";
+  document.getElementById("logContent").value = "";
+}
+
+function toggleSide(){
+  const side = document.getElementById('sidebar');
+  const wrap = document.getElementById('mainWrap');
+  side.classList.toggle('collapse');
+  wrap.classList.toggle('expand');
+}
+
+function logoutReturn(){
+  if(confirm("确认登出特工终端？")){
+    window.location.href = "login.html";
+  }
+}
+</script>
+</body>
+</html>
