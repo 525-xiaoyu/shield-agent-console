@@ -293,7 +293,7 @@ function loginCheck(){
   if(agentId === targetId && pwd === targetPwd){
     errDom.style.display = "none";
     // 跳转index.html，把特工ID通过url参数传过去
-    window.location.href = `index.html?agent=${encodeURIComponent(agentId)}`;
+    window.location.href = `console.html?agent=${encodeURIComponent(agentId)}`;
   }else{
     errDom.textContent = "身份验证失败，请核对特工编号与密码。";
     errDom.style.display = "block";
